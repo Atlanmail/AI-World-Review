@@ -1,2 +1,4 @@
 .venv
 .env
+data/user_posts.tar.gz
+data/feed_posts_likes.tar.gz
