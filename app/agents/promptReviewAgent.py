@@ -1,20 +1,34 @@
 from langchain_core.prompts import PromptTemplate
 from app.agents.IReviewAgent import IReviewAgent, ReviewResponses
 from app.utils.llm import llm;
+from langchain_core.output_parsers import JsonOutputParser
+from pydantic import BaseModel, Field
+
+
+import json
+
+class TweetReaction(BaseModel):
+    reaction: str = Field(description="Whether the user would ignore, like or share the tweet")
+    reasoning: str = Field(description="reasoning why it was rated")
+
+    
+    def __str__(self):
+        return f"TweetReaction(reaction='{self.reaction}', reasoning='{self.reasoning}')"
 
 '''
 Review agent that sets its personality based on a prompt.
 '''
 class promptReviewAgent():
     def __init__(self):
-        prompt_template = (
-            "You are a reviewer that mimics a user's preferences on Twitter described as the following: {profile_context}."
-            "Given the tweet below, "
-            "determine if the user would 'ignore', 'like' or 'share' this tweet. "
-            "Only output one of these three options.\n"
-            "Tweet: {tweet_text}"
+        
+        parser = JsonOutputParser(pydantic_object=TweetReaction)
+        self.template = PromptTemplate(
+            template = "You are a reviewer that mimics a user's preferences on Twitter described as the following: {profile_context}.\n"
+            "Given the tweet below, determine if the user would 'ignore', 'like', or 'share' this tweet.\n"
+            "Tweet: {tweet_text}",
+
+            input_variables=["tweet_text", "profile_context"],
         )
-        self.template = PromptTemplate.from_template(prompt_template)
         self.llm = llm
         self.profile_context = "You are an ordinary user with no specific traits."
     
@@ -36,7 +50,7 @@ class promptReviewAgent():
         """
         # Convert user_profile to a string for context. This can include like/dislike history, interests, etc.
         prompt = self.template.invoke({"tweet_text": content, "profile_context": self.profile_context})
-        response = self.llm.invoke(prompt)
-        return response.content
+        response = self.llm.with_structured_output(TweetReaction).invoke(prompt)
+        return response
     
    
